@@ -1,0 +1,161 @@
+\documentclass[portrait, color=UCLburgundy, margin=1cm]{uclposter}
+
+\linespread{1.0}
+
+\input{commands.tex}
+
+\usepackage{bm}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{caption}
+\usepackage{blindtext}
+\usepackage{siunitx}
+
+\input{glossary}
+
+\usepackage[style=ieee, maxbibnames=1, minbibnames=1, maxcitenames=1, mincitenames=1, backend=biber, defernumbers=false]{biblatex}
+\addbibresource{./Biblio.bib}
+
+\AtEveryBibitem{\clearfield{month}}
+\AtEveryBibitem{\clearfield{day}}
+\AtEveryBibitem{\clearfield{volume}}
+\AtEveryBibitem{\clearfield{issue}}
+\AtEveryBibitem{\clearfield{pages}}
+\AtEveryBibitem{\clearfield{number}}
+% \AtEveryBibitem{\clearfield{title}}
+\AtEveryBibitem{\clearfield{isbn}}
+\AtEveryBibitem{\clearfield{keywords}}
+\AtEveryBibitem{\clearfield{issn}}
+\AtEveryBibitem{\clearfield{journal}}
+\AtEveryBibitem{\clearfield{publisher}}
+
+\usepackage{fontspec}
+\setmainfont[Ligatures=TeX]{LexendDeca-Regular.ttf}
+
+\begin{document}
+    \title{Deep Learning for CT-Based Survival Analysis of Idiopathic Pulmonary Fibrosis Patients}
+    
+    \author[1*]{Alexander~C.~Whitehead}
+    \author[12]{Ahmed~H.~Shahin}
+    \author[12]{An~Zhao}
+    \author[12]{Daniel~C.~Alexander\newline}
+    \author[3]{Joseph~Jacob}
+    \author[14]{David~Barber}
+    
+    \affil[1]{Department of Computer Science, UCL}
+    \affil[2]{CMIC, UCL}
+    \affil[3]{Lungs for Living Research Centre, UCL\newline}
+    \affil[4]{Centre for Artificial Intelligence, UCL}
+    \affil[*]{alexander.whitehead.18@ucl.ac.uk}
+    
+    \maketitle
+
+    \begin{multicols}{2}
+        \section*{Introduction}
+            \begin{highlightbox}[UCLlightgreen]
+                \begin{itemize}
+                    \item Under the umbrella of \glspl{ILD}, \gls{IPF} is  characterised by a buildup of scar tissue in and a stiffening of the lungs of the patient; leading to a reduction in the volume of the lung, resulting in a shortness of breath and eventually death. As with many other \glspl{ILD}, the progression of the disease is heterogeneous, and prognosis is challenging~\cite{King2011IdiopathicFibrosis}.
+                    
+                    \item Previously, methods to monitor \gls{IPF} included testing lung function, with spirometric measurement of lung volume~\cite{Watters1986AFibrosis}, or taking \gls{CT} acquisitions over time~\cite{Lynch2018DiagnosticPaper}. Both approaches are limited by several factors, including, physical limitations of the patient, technical accuracy (spirometer baseline drift bias), and  longitudinal data availability. In contrast, measuring how long an \gls{IPF} patient could survive on the basis of a baseline \gls{CT} scan can be a useful clinical outcome to measure in order to prioritise resources and plan intervention. For this reason, here the focus is on accurately predicting \gls{IPF} patient death time based on a baseline \gls{CT} scan and associated clinical features.
+                    
+                    \item In Cox Proportional Hazards Survival Analysis~\cite{Cox1972RegressionLife-Tables} the death time of one participant is compared to another, and the model ranks patients according to their expected death times. However, a limitation is that the model does not directly output survival times. Recently models have been introduced that attempt to predict more directly the death time of a participant. For instance, DeepHit uses a \gls{CNN} to perform feature extraction on input \gls{CT} and outputs the probability of a survival time falling within predetermined bins of a death time histogram~\cite{Lee2018DeepHit:Risks}. This treats survival analysis as a multi-class classification problem with a class for each time-bin that a patient could die in. A disadvantage is that the bins are not ordinally related and the model is penalised as much for making an error of one month as it is an error of ten years.
+                    
+                    \item Censoring is a significant issue in survival analysis in which the precise death time of a patient is unknown. In the \gls{OSIC} \gls{IPF} data set~\cite{OSICOSICRepository}, approximately $66\%$ of the records are right-censored, meaning that the time of death is above a known value but it is unknown by how much. A simple approach would be to remove censored data, however, this would discard a very significant fraction of training data. Missing data in clinical records is a related issue. Again, with approximately $66\%$ of the \gls{OSIC} \gls{IPF} data~\cite{OSICOSICRepository} set has some missing clinical information.
+                    
+                    \item Here, a number of survival analysis models that predict death time using a \gls{NN} are presented. The inputs of which being a baseline \gls{CT} scan and associated patient clinical information (such as height, age, etc). The models are able to address censoring and missing clinical information following~\cite{Shahin2023DeepAnalysis, Shahin2022SurvivalData} respectively. Different training losses are used, including ones based on classical Cox based ranking, likelihood, and DeepHit. In the case of the Cox based loss, one with and one without a memory bank of previous predictions is used (to allow the loss to be approximated at all previously seen data points~\cite{Shahin2022SurvivalData}). In the case of the likelihood based loss, one where censoring time is sampled in the classical way and one where censoring time is sampled from a uniform distribution is used~\cite{Shahin2023DeepAnalysis}. Extensions over previous work include; a change to the \gls{NN} architecture (larger, with a learnt downsampling, parameterised activation and softplus output, and orthogonal initialisation), a new optimiser, gradient accumulation (as such an increased batch size), and an annealed learning rate.
+                \end{itemize}
+            \end{highlightbox}
+
+        \section*{Methods}
+            \subsection*{\underline{\textbf{Data Acquisition and Preparation}}}
+                \begin{itemize}
+                    \item A total of $550$ \gls{CT} acquisitions were taken from the \gls{OSIC} data set~\cite{OSICOSICRepository}. Each volume was segmented to remove data outside of the lung and was normalised independently. Where appropriate, clinical features, such as age and sex were also used. If missing clinical features were present, their value was imputed following~\cite{Shahin2022SurvivalData}. Data were split into train and test groups using five fold \gls{CV}.
+                \end{itemize}
+
+            \subsection*{\underline{\textbf{Models}}}
+                \begin{itemize}
+                    \item Each \gls{NN} consisted of seven \gls{CNN} blocks, within which were two convolutions with stride one and one with stride two. Each convolution had a kernel size of three and used an orthogonal activation~\cite{Hu2020ProvableNetworks}. Between each layer there was a \gls{PReLU} activation~\cite{He2015DelvingClassification}, initialised with $\alpha$ set to one (meaning the network begins linear and becomes more non-linear as training progresses). At each downsampling step, the number of channels doubled. Global average pooling and flattening layers were used before fully connected layers reduced the number of units until it equals the output size (by halving the number of units at each layer). When clinical features were used, they were concatenated to the output of the flattening layer. A softplus activation was used at the output for numerical stability. The model architecture was selected using the Event Conditional Likelihood loss.
+            
+                    \item AdamW was used as the optimiser, with weight decay, to improve the convergence rate as well as to penalise against large weights and overfitting~\cite{Loshchilov2019DecoupledRegularization}. The learning rate started close to zero and increased linearly to the target learning rate over the first one tenth of iterations, before reducing back to close to zero over the next nine tenths. For each loss calculation a batch size of four was used, this is because Cox loss requires a batch size greater than one (for the sake of comparison the same number was used for all losses). This was approximately increased to $32$ using gradient accumulation, meaning eight gradients were averaged together at each iteration. Because of the \gls{MB} the effective batch size of Cox \gls{MB} was greater.
+            
+                    \item For comparison, five loss functions were trialed:
+            
+                    \begin{itemize}
+                        \item \textbf{Event Conditional Likelihood} - Maximise likelihood using a Gaussian to model the time of death, where the censoring time was sampled from a uniform distribution from time zero up to the death time~\cite{Shahin2023DeepAnalysis}.
+            
+                        \item \textbf{Classical Likelihood} - Maximise likelihood using a Gaussian to model the time of death, where the censoring time was sampled from a Gaussian distribution parameterised by the censor time. This is one of the classical ways to handle censoring~\cite{Lee2018DeepHit:Risks}.
+            
+                        \item \textbf{Cox} - Cox Proportional Hazards~\cite{Cox1972RegressionLife-Tables}.
+            
+                        \item \textbf{Cox \gls{MB}} - Cox Proportional Hazards with \gls{MB}~\cite{Shahin2022SurvivalData}.
+            
+                        \item \textbf{DeepHit} - Log-likelihood, with a maximum output value of $105$ years and $840$ bins~\cite{Lee2018DeepHit:Risks}.
+                    \end{itemize}
+            
+                    \item For both likelihood losses a fixed \gls{STD} equal to one year was used. For both Cox losses the output was converted to survival times using the Breslow estimator~\cite{Breslow1974CovarianceData}.
+                \end{itemize}
+            
+            \subsection*{\underline{\textbf{Evaluation}}}
+                \begin{itemize}
+                    \item For evaluation of the results of the five loss functions the following methods were used; the \gls{MAE} and \gls{RAE} for the uncensored data between the predicted and true value was taken, the concordance index, the Brier score and a visual analysis of Grad-CAM images~\cite{Raykar2008OnIndex, Gerds2006ConsistentTimes, Selvaraju2020Grad-CAM:Localization}. For display of Grad-CAM a slice was selected which displayed fibrosis in the base of both lungs. Only the model without clinical features was used for Grad-CAM extraction.
+                \end{itemize}
+
+        \begin{table}[H]
+            \centering
+            
+            \captionsetup{singlelinecheck=false, justification=centering}
+            \caption{
+                A comparison of \gls{MAE}, \gls{RAE}, the concordance index, and the Brier score. The average survival time was approximately $32$ months. Here C refers to Classical Likelihood, EC Likelihood refers to Event Conditional Likelihood, and CF refers to when the clinical features were included in the model.
+            }
+            
+            \resizebox*{1.0\linewidth}{!}
+            {
+                \begin{tabular}{||c|cc|c|c||}
+                    \hline
+                    & \textbf{\gls{MAE}} & \textbf{\gls{RAE}} & \textbf{C-Index}  & \textbf{Brier}    \\
+                    \hline
+                    \textbf{EC Likelihood}      & $22.7\pm1.51$      & $1.72\pm0.89$      & $0.77\pm0.05$     & $0.22\pm0.07$      \\
+                    \textbf{EC Likelihood CF}   & $21.5\pm1.32$      & $1.98\pm0.82$      & $0.80\pm0.03$     & $0.18\pm0.05$      \\
+                    \textbf{C Likelihood}       & $28.9\pm1.96$      & $2.23\pm0.01$      & $0.76\pm0.05$     & $0.25\pm0.01$      \\
+                    \textbf{C Likelihood CF}    & $25.3\pm1.74$      & $2.04\pm0.01$      & $0.75\pm0.04$     & $0.20\pm0.01$      \\
+                    \hline
+                    \textbf{Cox}                & $187 \pm309 $      & $17.0\pm30.7$      & $0.73\pm0.04$     & $0.61\pm0.28$      \\
+                    \textbf{Cox CF}             & $233 \pm287 $      & $26.4\pm21.9$      & $0.72\pm0.03$     & $0.57\pm0.16$      \\
+                    \textbf{Cox \gls{MB}}       & $166 \pm267 $      & $17.7\pm28.2$      & $0.74\pm0.03$     & $0.53\pm0.31$      \\
+                    \textbf{Cox \gls{MB} CF}    & $179 \pm294 $      & $16.3\pm22.8$      & $0.73\pm0.05$     & $0.56\pm0.24$      \\
+                    \hline
+                    \textbf{DeepHit}            & $38.4\pm14.8$      & $3.99\pm0.34$      & $0.72\pm0.03$     & $0.40\pm0.01$      \\
+                    \textbf{DeepHit CF}         & $31.3\pm9.19$      & $3.50\pm0.42$      & $0.71\pm0.04$     & $0.42\pm0.01$      \\
+                    \hline
+                \end{tabular}
+            }
+        \end{table}
+        
+        \section*{Conclusion}
+            \begin{highlightbox}[UCLlightgreen]
+                \begin{itemize}
+                    \item From a comparison of errors and a visual analysis it appears that the likelihood based models provide the best results most often.
+                    
+                    \item The model used for the DeepHit model had more parameters than the model used for all other methods (due to the output being larger), thus it may not be an entirely fair comparison. However, while using a larger model the method does not provide results significantly better than the likelihood models.
+                    
+                    \item When clinical features were used it seems to improve results, although not significantly. For the increase in complexity it may not be worth including.
+                    
+                    \item What is not factored into the results is computation time. The Cox loss without \gls{MB} is the fastest to compute, the likelihood losses are not much longer. The DeepHit loss takes slightly longer than both previous methods while the Cox \gls{MB} loss takes magnitudes longer (approximately six hours vs four days).
+                \end{itemize}
+            \end{highlightbox}
+        
+        \AtNextBibliography{\small}
+        \printbibliography
+    \end{multicols}
+
+    \begin{figure}[H]
+        \centering
+
+        \includegraphics[width=1.0\linewidth]{grad_cam_label.png}
+        
+        \captionsetup{singlelinecheck=false, justification=centering}
+        \caption{
+            From left to right a slice through a fibrotic region of a Grad-CAM image, taken from a middle convolution, of a $65$ year old patient with a survival time of $30$ months For; (a) Death Conditional Likelihood, (b) Classical Likelihood, (c) Cox, (d) Cox \gls{MB}, and (e) DeepHit. All colour maps are consistent for all images.
+        }
+   \end{figure}
+\end{document}
